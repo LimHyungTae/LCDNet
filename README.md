@@ -1,5 +1,36 @@
 # LCDNet: Deep Loop Closure Detection and Point Cloud Registration for LiDAR SLAM  (IEEE T-RO 2022)
 
+---
+
+## HOW TO RUN
+
+* 현재 도커 시스템 구축되어 있음!
+
+```commandline
+docker pull shapelim/lcdnet:latest 
+```
+
+그 후 아래와 같이 적절히 KITTI나 MulRan dataset의 volume을 set해줘야 함 
+
+```commandline
+docker run --gpus all -it --rm -v /media/shapelim/UX980/UX960NVMe/mulran-LiDAR:/data/mulran -v /home/shapelim/git/LCDNet:/LCDNet_htws -it a38659c74e3c /bin/bash
+```
+
+마지막으로, KITTI인지 MulRan인지에 따라서 적절히 파라미터들 세팅해줘야 함.
+
+- `evaluation/inference_yaw_general.py`에서 indices를 불러와서 돌리고 있음! 
+- Pycharm에서 "HT: For MulRan"이라고 검색해서 수정해야할 부분 찾아야 함
+- 특히 MulRan이면 intensity 값을 0.0으로 맞춰주는 게 중요함!
+- Threshold는 2 m, 10도로 통일
+
+적절히 세팅한 후, docker 안에서 `conda activate lcdnet` 후,
+
+```commandline
+bash autorun.sh
+bash mulran_autorun.sh
+```
+
+---
 Official PyTorch implementation of LCDNet.
 
 [![](imgs/video-preview.png)](https://www.youtube.com/watch?v=nAvTdEFRh_s)

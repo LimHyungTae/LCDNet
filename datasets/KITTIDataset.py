@@ -9,6 +9,17 @@ import pickle
 
 import utils.rotation_conversion as RT
 
+# HT: For MulRan
+global cloud_file_names
+# cloud_file_names = []
+def list_files_in_directory(directory):
+    files = []
+    print("\033[1;32mTarget dir: ", directory, "\033[0m")
+    for file in os.listdir(directory):
+        if os.path.isfile(os.path.join(directory, file)) and not file.startswith('.'):
+            files.append(file)
+    print("\033[1;32m", len(files), "\033[0m")
+    return sorted(files)
 
 def get_velo(idx, dir, sequence, jitter=False, remove_random_angle=-1, without_ground=False):
     if without_ground:
@@ -17,7 +28,13 @@ def get_velo(idx, dir, sequence, jitter=False, remove_random_angle=-1, without_g
         with h5py.File(velo_path, 'r') as hf:
             scan = hf['PC'][:]
     else:
-        velo_path = os.path.join(dir, 'sequences', f'{int(sequence):02d}', 'velodyne', f'{idx:06d}.bin')
+        # velo_path = os.path.join(dir, 'sequences', f'{int(sequence):02d}', 'velodyne', f'{idx:06d}.bin')
+        # HT: For MulRan
+        if isinstance(idx, int):
+            velo_path = os.path.join(dir, 'sequences', sequence, 'Ouster', f'{idx:06d}.bin')
+        else:
+            global cloud_file_names
+            velo_path = os.path.join(dir, 'sequences', sequence, 'Ouster', cloud_file_names[idx])
         scan = np.fromfile(velo_path, dtype=np.float32)
     scan = scan.reshape((-1, 4))
 
@@ -59,6 +76,9 @@ class KITTILoader3DPoses(Dataset):
         self.remove_random_angle = remove_random_angle
         self.without_ground = without_ground
         data = read_calib_file(os.path.join(dir, 'sequences', sequence, 'calib.txt'))
+        # HT: For MulRan
+        global cloud_file_names
+        cloud_file_names = list_files_in_directory(os.path.join(dir, 'sequences', sequence, 'Ouster'))
         cam0_to_velo = np.reshape(data['Tr'], (3, 4))
         cam0_to_velo = np.vstack([cam0_to_velo, [0, 0, 0, 1]])
         cam0_to_velo = torch.tensor(cam0_to_velo)

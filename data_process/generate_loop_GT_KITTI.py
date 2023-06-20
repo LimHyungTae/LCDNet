@@ -76,13 +76,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     base_dir = args.root_folder
-    for sequence in ["00", "03", "04", "05", "06", "07", "08", "09"]:
+    for sequence in ["00", "02", "03", "04", "05", "06", "07", "08", "09"]:
         poses_file = base_dir + "/sequences/" + sequence + "/poses.txt"
+        print("\033[1;32m" + poses_file + "\033[0m")
 
         dataset = KITTILoader3DPosesOnlyLoopPositives(base_dir, sequence, poses_file, 4, 10, [6, 10])
         lc_gt = []
         lc_gt_file = os.path.join(base_dir, 'sequences', sequence, 'loop_GT_4m.pickle')
-
+        print(len(dataset))
         for i in range(len(dataset)):
 
             sample, pos, neg, hard = dataset[i]

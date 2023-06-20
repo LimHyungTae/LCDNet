@@ -139,8 +139,15 @@ def main_process(gpu, weights_path, args):
     exp_cfg['sinkhorn_iter'] = 5
 
     if args.dataset == 'kitti':
+        # dataset_for_recall = KITTILoader3DPoses(args.root_folder, sequences_validation[0],
+        #                                         os.path.join(args.root_folder, 'sequences', sequences_validation[0],'poses.txt'),
+        #                                         train=False, loop_file=exp_cfg['loop_file'],
+        #                                         remove_random_angle=args.remove_random_angle,
+        #                                         without_ground=args.without_ground)
+
+        # HT: For MulRan
         dataset_for_recall = KITTILoader3DPoses(args.root_folder, sequences_validation[0],
-                                                os.path.join(args.root_folder, 'sequences', sequences_validation[0],'poses.txt'),
+                                                os.path.join(args.root_folder, 'sequences', sequences_validation[0], 'poses.txt'),
                                                 train=False, loop_file=exp_cfg['loop_file'],
                                                 remove_random_angle=args.remove_random_angle,
                                                 without_ground=args.without_ground)
@@ -151,25 +158,33 @@ def main_process(gpu, weights_path, args):
                                              without_ground=args.without_ground)
 
     test_pair_idxs = []
-    index = faiss.IndexFlatL2(3)
-    poses = np.stack(dataset_for_recall.poses).copy()
-    index.add(poses[:50, :3, 3].copy())
-    num_frames_with_loop = 0
-    num_frames_with_reverse_loop = 0
-    for i in tqdm(range(100, len(dataset_for_recall.poses))):
-        current_pose = poses[i:i+1, :3, 3].copy()
-        index.add(poses[i-50:i-49, :3, 3].copy())
-        lims, D, I = index.range_search(current_pose, 4.**2)
-        for j in range(lims[0], lims[1]):
-            if j == 0:
-                num_frames_with_loop += 1
-                yaw_diff = RT.npto_XYZRPY(np.linalg.inv(poses[I[j]]) @ poses[i])[-1]
-                yaw_diff = yaw_diff % (2 * np.pi)
-                if 0.79 <= yaw_diff <= 5.5:
-                    num_frames_with_reverse_loop += 1
+    # index = faiss.IndexFlatL2(3)
+    # poses = np.stack(dataset_for_recall.poses).copy()
+    # index.add(poses[:50, :3, 3].copy())
+    # num_frames_with_loop = 0
+    # num_frames_with_reverse_loop = 0
+    # for i in tqdm(range(100, len(dataset_for_recall.poses))):
+    #     current_pose = poses[i:i+1, :3, 3].copy()
+    #     index.add(poses[i-50:i-49, :3, 3].copy())
+    #     lims, D, I = index.range_search(current_pose, 4.**2)
+    #     for j in range(lims[0], lims[1]):
+    #         if j == 0:
+    #             num_frames_with_loop += 1
+    #             yaw_diff = RT.npto_XYZRPY(np.linalg.inv(poses[I[j]]) @ poses[i])[-1]
+    #             yaw_diff = yaw_diff % (2 * np.pi)
+    #             if 0.79 <= yaw_diff <= 5.5:
+    #                 num_frames_with_reverse_loop += 1
+    #
+    #         test_pair_idxs.append([I[j], i])
 
-            test_pair_idxs.append([I[j], i])
+    idxes_pairs_from_quatropp = args.root_folder + "/sequences/" + args.validation_sequence + "/" + args.start_idx + "_" + args.end_idx + "_1000.txt"
+    print("\033[1;32m", idxes_pairs_from_quatropp, "\033[0m")
+    idxes_pairs_np = np.loadtxt(idxes_pairs_from_quatropp)
+    for (i, j) in idxes_pairs_np:
+        test_pair_idxs.append([int(i), int(j)])
+
     test_pair_idxs = np.array(test_pair_idxs)
+    print(test_pair_idxs.shape)
 
     batch_sampler = BatchSamplePairs(dataset_for_recall, test_pair_idxs, exp_cfg['batch_size'])
     RecallLoader = torch.utils.data.DataLoader(dataset=dataset_for_recall,
@@ -316,7 +331,6 @@ def main_process(gpu, weights_path, args):
 
                 current_frame += batch_dict['batch_size'] // 2
 
-
     print(weights_path)
     print(exp_cfg['test_sequence'])
 
@@ -345,12 +359,14 @@ def main_process(gpu, weights_path, args):
     # print("Saving to ", save_path)
     # with open(f'{save_path}.pickle', 'wb') as f:
     #     pickle.dump(save_dict, f)
-    valid = yaw_error <= 5.
+    valid = yaw_error <= 10.
     valid = valid & (np.array(transl_errors) <= 2.)
     succ_rate = valid.sum() / valid.shape[0]
     rte_suc = transl_errors[valid].mean()
     rre_suc = yaw_error[valid].mean()
     print(f"Success Rate: {succ_rate}, RTE: {rte_suc}, RRE: {rre_suc}")
+    with open("success_rate.txt", "a") as file:
+        file.write(f"{args.validation_sequence}, {args.start_idx}, {args.end_idx}, {succ_rate} {rte_suc} {rre_suc}\n")
 
 
 if __name__ == '__main__':
@@ -358,6 +374,9 @@ if __name__ == '__main__':
     parser.add_argument('--root_folder', default='/home/cattaneo/Datasets/KITTI',
                         help='dataset directory')
     parser.add_argument('--weights_path', default='/home/cattaneo/checkpoints/deep_lcd')
+    parser.add_argument('--start_idx', type=str, default="2")
+    parser.add_argument('--end_idx', type=str, default="6")
+    parser.add_argument('--idx_pairs_path', default='')
     parser.add_argument('--num_iters', type=int, default=1)
     parser.add_argument('--dataset', type=str, default='kitti')
     parser.add_argument('--ransac', action='store_true', default=False)
